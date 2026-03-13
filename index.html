@@ -1,154 +1,402 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Garden Scene - Practical Quiz</title>
-    <style>
-        body { margin: 0; overflow: hidden; background-color: #87CEEB; }
-        canvas { display: block; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Garden Scene – Practical Quiz</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; overflow: hidden; font-family: 'Georgia', serif; }
+  canvas { display: block; }
+  .ui-top {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+    background: rgba(30, 42, 60, 0.90); color: #d8eaf8;
+    padding: 10px 28px; border-radius: 40px; font-size: 13px;
+    letter-spacing: 2.5px; text-transform: uppercase;
+    border: 1px solid rgba(180,210,255,0.18);
+    backdrop-filter: blur(8px); pointer-events: none; white-space: nowrap;
+  }
+  .ui-bottom {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: rgba(30, 42, 60, 0.82); color: rgba(180,210,255,0.75);
+    padding: 9px 26px; border-radius: 40px; font-size: 11px;
+    letter-spacing: 2px; text-transform: uppercase;
+    border: 1px solid rgba(180,210,255,0.12);
+    backdrop-filter: blur(8px); pointer-events: none;
+  }
+</style>
 </head>
 <body>
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
-            }
-        }
-    </script>
+<div class="ui-top">🌸 Garden Scene &nbsp;·&nbsp; Table, Chairs &amp; Refreshments</div>
+<div class="ui-bottom">Drag to Rotate &nbsp;·&nbsp; Scroll to Zoom &nbsp;·&nbsp; Right-Drag to Pan</div>
 
-    <script type="module">
-        import * as THREE from 'three';
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════════
+//  SCENE / RENDERER
+// ═══════════════════════════════════════════════════════════════════
+const scene    = new THREE.Scene();
+scene.fog      = new THREE.Fog(0xa8d8a8, 45, 130);
 
-        // 1. SCENE & CAMERA SETUP
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB); // Sky Blue
+const camera   = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 300);
 
-        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(15, 12, 20);
-        camera.lookAt(0, 2, 0);
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true;
-        document.body.appendChild(renderer.domElement);
+// ═══════════════════════════════════════════════════════════════════
+//  LIGHTS
+// ═══════════════════════════════════════════════════════════════════
+scene.add(new THREE.AmbientLight(0xffffff, 0.62));
 
-        // 2. LIGHTING (Creates the shadows seen in Image 2)
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        scene.add(ambientLight);
+const sun = new THREE.DirectionalLight(0xfff8ee, 1.25);
+sun.position.set(14, 22, 12);
+sun.castShadow = true;
+sun.shadow.mapSize.width  = 2048;
+sun.shadow.mapSize.height = 2048;
+sun.shadow.bias = -0.001;
+sun.shadow.camera.near   = 1;   sun.shadow.camera.far    = 90;
+sun.shadow.camera.left   = -28; sun.shadow.camera.right  = 28;
+sun.shadow.camera.top    = 28;  sun.shadow.camera.bottom = -28;
+scene.add(sun);
 
-        const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
-        sunLight.position.set(10, 20, 10);
-        sunLight.castShadow = true;
-        scene.add(sunLight);
+const fill = new THREE.DirectionalLight(0xb0d8ff, 0.35);
+fill.position.set(-10, 6, -6);
+scene.add(fill);
 
-        // 3. MATERIALS
-        const greenMat = new THREE.MeshLambertMaterial({ color: 0x71aa3c });
-        const woodMat = new THREE.MeshLambertMaterial({ color: 0xba8c63 });
-        const darkMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
-        const groundMat = new THREE.MeshLambertMaterial({ color: 0xeeeeee });
-        const pinkMat = new THREE.MeshLambertMaterial({ color: 0xffb6c1 });
+// ═══════════════════════════════════════════════════════════════════
+//  MATERIALS  —  different palette from previous scene
+//  Background greens kept the same; table, chairs, tins changed
+// ═══════════════════════════════════════════════════════════════════
+const M = {
+  // environment – unchanged greens
+  ground:     new THREE.MeshLambertMaterial({ color: 0x8ecf72 }),
+  groundIn:   new THREE.MeshLambertMaterial({ color: 0x9ed882 }),
+  hedge:      new THREE.MeshLambertMaterial({ color: 0x5aaa55 }),
+  treeTop:    new THREE.MeshLambertMaterial({ color: 0x62b85a }),
+  treeTrunk:  new THREE.MeshLambertMaterial({ color: 0xa0724a }),
 
-        // 4. THE GROUND
-        const ground = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), groundMat);
-        ground.rotation.x = -Math.PI / 2;
-        ground.receiveShadow = true;
-        scene.add(ground);
+  // table – warm walnut instead of honey-oak
+  tableTop:   new THREE.MeshLambertMaterial({ color: 0x6b3a2a }),
+  tableRim:   new THREE.MeshLambertMaterial({ color: 0x4e2618 }),
+  tableBase:  new THREE.MeshLambertMaterial({ color: 0x1a1a2e }),
 
-        // 5. HEDGES (L-Shape Boundary)
-        function createHedge(w, h, d, x, z) {
-            const hedge = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), greenMat);
-            hedge.position.set(x, h/2, z);
-            hedge.castShadow = true;
-            scene.add(hedge);
-        }
-        createHedge(20, 3, 2, 0, -8); // Back hedge
-        createHedge(2, 3, 15, -9, 0); // Left hedge
+  // chairs – teal/navy instead of pink/grey
+  chairSeat:  new THREE.MeshLambertMaterial({ color: 0x3a9dad }),
+  chairBack:  new THREE.MeshLambertMaterial({ color: 0x2d7f8e }),
+  chairMetal: new THREE.MeshLambertMaterial({ color: 0xc8a96e }),   // gold legs
 
-        // 6. TREES (Cone-based pine trees)
-        function createTree(x, z) {
-            const group = new THREE.Group();
-            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 2), woodMat);
-            trunk.position.y = 1;
-            group.add(trunk);
-            
-            for(let i=0; i<3; i++) {
-                const foliage = new THREE.Mesh(new THREE.ConeGeometry(1.5 - (i*0.3), 2), greenMat);
-                foliage.position.y = 2.5 + (i * 1.2);
-                group.add(foliage);
-            }
-            group.position.set(x, 0, z);
-            scene.add(group);
-        }
-        createTree(-7, -6);
-        createTree(7, -6);
+  // Milo tin – same green, different label colours
+  miloGreen:  new THREE.MeshLambertMaterial({ color: 0x2d7a2d }),
+  miloLabel:  new THREE.MeshLambertMaterial({ color: 0xfff8cc }),
+  miloStripe: new THREE.MeshLambertMaterial({ color: 0xffaa00 }),   // amber instead of red
+  miloLid:    new THREE.MeshLambertMaterial({ color: 0x333300 }),
 
-        // 7. THE TABLE (Central Piece)
-        const table = new THREE.Group();
-        const top = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 0.2, 32), woodMat);
-        top.position.y = 2.5;
-        table.add(top);
-        
-        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 2.5), darkMat);
-        leg.position.y = 1.25;
-        table.add(leg);
+  // milk tin – blue body instead of silver
+  milkBody:   new THREE.MeshLambertMaterial({ color: 0x2a4a8a }),
+  milkBand1:  new THREE.MeshLambertMaterial({ color: 0xffffff }),
+  milkBand2:  new THREE.MeshLambertMaterial({ color: 0xf0c030 }),
+  milkLid:    new THREE.MeshLambertMaterial({ color: 0x7a9aee }),
 
-        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.1), darkMat);
-        base.position.y = 0.05;
-        table.add(base);
-        scene.add(table);
+  // cups – terracotta instead of white
+  cup:        new THREE.MeshLambertMaterial({ color: 0xd4724a }),
+  cupRim:     new THREE.MeshLambertMaterial({ color: 0xb85a32 }),
+  coffee:     new THREE.MeshLambertMaterial({ color: 0x1a0800 }),
 
-        // 8. CHAIRS (x2)
-        function createChair(x, z, rot) {
-            const chair = new THREE.Group();
-            const seat = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.2, 1.2), pinkMat);
-            seat.position.y = 1.3;
-            chair.add(seat);
-            
-            // Simple legs
-            for(let i=0; i<4; i++) {
-                const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.3), darkMat);
-                leg.position.set(i<2?0.5:-0.5, 0.65, i%2==0?0.5:-0.5);
-                chair.add(leg);
-            }
-            chair.position.set(x, 0, z);
-            chair.rotation.y = rot;
-            scene.add(chair);
-        }
-        createChair(-4, 0, Math.PI/2);
-        createChair(4, 0, -Math.PI/2);
+  // extras
+  stone:      new THREE.MeshLambertMaterial({ color: 0xc8c0b0 }),
+  lampPost:   new THREE.MeshLambertMaterial({ color: 0x1a1a2e }),
+  lampHead:   new THREE.MeshLambertMaterial({ color: 0x111120 }),
+  lampGlow:   new THREE.MeshLambertMaterial({ color: 0xaaddff, emissive: 0x88bbff, emissiveIntensity: 0.9 }),
+  petal:      new THREE.MeshLambertMaterial({ color: 0xffccaa }),   // peach petals
+  pollen:     new THREE.MeshLambertMaterial({ color: 0xff8800 }),
+  stem:       new THREE.MeshLambertMaterial({ color: 0x449933 }),
+  pot:        new THREE.MeshLambertMaterial({ color: 0x1a1a2e }),
+  leaf:       new THREE.MeshLambertMaterial({ color: 0x55bb55 }),
+};
 
-        // 9. TABLETOP ITEMS (Milo, Milk, Cups)
-        const milo = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.7), new THREE.MeshLambertMaterial({color: 0x006400}));
-        milo.position.set(-0.6, 2.9, 0.3);
-        scene.add(milo);
+// ═══════════════════════════════════════════════════════════════════
+//  PRIMITIVE HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function mkBox(w,h,d,m)       { const me=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);          me.castShadow=me.receiveShadow=true; return me; }
+function mkCyl(rt,rb,h,s,m)   { const me=new THREE.Mesh(new THREE.CylinderGeometry(rt,rb,h,s),m); me.castShadow=me.receiveShadow=true; return me; }
+function mkSph(r,ws,hs,m)     { const me=new THREE.Mesh(new THREE.SphereGeometry(r,ws,hs),m);     me.castShadow=me.receiveShadow=true; return me; }
+function mkCone(r,h,s,m)      { const me=new THREE.Mesh(new THREE.ConeGeometry(r,h,s),m);         me.castShadow=me.receiveShadow=true; return me; }
+function put(parent,child,x,y,z){ child.position.set(x,y,z); parent.add(child); return child; }
 
-        const milk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.6), groundMat);
-        milk.position.set(0.6, 2.9, -0.3);
-        scene.add(milk);
+// ═══════════════════════════════════════════════════════════════════
+//  SKY DOME  (same gradient as before)
+// ═══════════════════════════════════════════════════════════════════
+scene.add(new THREE.Mesh(
+  new THREE.SphereGeometry(130,16,10),
+  new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    uniforms: { top:{ value:new THREE.Color(0x5aa8d8) }, bot:{ value:new THREE.Color(0xbce8f4) } },
+    vertexShader:   varying vec3 vP; void main(){ vP=(modelMatrix*vec4(position,1.0)).xyz; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); },
+    fragmentShader: uniform vec3 top,bot; varying vec3 vP; void main(){ float t=clamp(normalize(vP).y*1.2,0.0,1.0); gl_FragColor=vec4(mix(bot,top,t),1.0); }
+  })
+));
 
-        function createCup(x, z) {
-            const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.15, 0.3), pinkMat);
-            cup.position.set(x, 2.75, z);
-            scene.add(cup);
-        }
-        createCup(0, 0.8);
-        createCup(0, -0.8);
+// ═══════════════════════════════════════════════════════════════════
+//  GROUND
+// ═══════════════════════════════════════════════════════════════════
+const hill = new THREE.Mesh(new THREE.SphereGeometry(65,48,40,0,Math.PI*2,0,0.18), M.ground);
+hill.rotation.x=Math.PI; hill.position.y=-3.8; hill.receiveShadow=true; scene.add(hill);
 
-        // 10. ANIMATION LOOP
-        function animate() {
-            requestAnimationFrame(animate);
-            renderer.render(scene, camera);
-        }
-        animate();
+const floorMesh = new THREE.Mesh(new THREE.CircleGeometry(11,64), M.groundIn);
+floorMesh.rotation.x=-Math.PI/2; floorMesh.position.y=0.01; floorMesh.receiveShadow=true; scene.add(floorMesh);
 
-        // Handle window resize
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-    </script>
+// ═══════════════════════════════════════════════════════════════════
+//  HEDGES
+// ═══════════════════════════════════════════════════════════════════
+function makeHedge(len, px, pz, ry){
+  const g=new THREE.Group(), seg=1.6, n=Math.ceil(len/seg);
+  for(let i=0;i<n;i++){
+    const xo=i*seg-len/2+seg/2;
+    const b=mkBox(seg*0.93,2.5,1.9,M.hedge); b.position.set(xo,1.25,0); g.add(b);
+    for(let k=0;k<2;k++){ const bl=mkSph(0.72,9,7,M.hedge); bl.position.set(xo+(k-0.5)*0.72,2.62,0); g.add(bl); }
+  }
+  g.position.set(px,0,pz); g.rotation.y=ry; scene.add(g);
+}
+makeHedge(22,  0,-9.5,0);
+makeHedge(20,-9.5, 0, Math.PI/2);
+makeHedge(20, 9.5, 0, Math.PI/2);
+
+// ═══════════════════════════════════════════════════════════════════
+//  TREES
+// ═══════════════════════════════════════════════════════════════════
+function makeTree(x,z,s){
+  s=s||1; const g=new THREE.Group();
+  const tr=mkCyl(0.18*s,0.26*s,1.3*s,8,M.treeTrunk); tr.position.y=0.65*s; g.add(tr);
+  [[2.3,3.6,1.3],[1.85,3.1,2.65],[1.3,2.5,3.75]].forEach(([r,h,y])=>{
+    const c=mkCone(r*s,h*s,9,M.treeTop); c.position.y=y*s; g.add(c);
+  });
+  g.position.set(x,0,z); scene.add(g);
+}
+makeTree(-8.5,-8.5,1.05); makeTree(8.5,-8.5,1.05);
+makeTree(-7.5, 8.5,0.78); makeTree(7.5, 8.5,0.78);
+makeTree(-6.2,-6.2,0.72); makeTree(6.2,-6.2,0.72);
+makeTree(0,   -8.2,0.68);
+
+// ═══════════════════════════════════════════════════════════════════
+//  LAMP POSTS  —  blue-white glow instead of warm amber
+// ═══════════════════════════════════════════════════════════════════
+function makeLamp(x,z){
+  const g=new THREE.Group();
+  put(g,mkCyl(0.10,0.13,5.2,8,M.lampPost), 0,2.6,0);
+  put(g,mkBox(1.1,0.10,0.10,M.lampPost),   0.5,5.25,0);
+  put(g,mkBox(0.42,0.52,0.42,M.lampHead),  1.0,5.00,0);
+  put(g,mkSph(0.16,8,6,M.lampGlow),        1.0,5.20,0);
+  const pl=new THREE.PointLight(0x88ccff,0.9,9); pl.position.set(1.0,5.15,0); g.add(pl);
+  g.position.set(x,0,z); scene.add(g);
+}
+makeLamp(-4.2,-6.5); makeLamp(4.2,-6.5);
+
+// ═══════════════════════════════════════════════════════════════════
+//  STEPPING STONES
+// ═══════════════════════════════════════════════════════════════════
+[-3.8,-2.2,-0.6,1.0,2.6,4.2].forEach(x=>{
+  const s=mkCyl(0.68,0.72,0.14,10,M.stone); s.position.set(x,0.07,11.5); s.receiveShadow=true; scene.add(s);
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  FLOWERS  —  peach/orange petals
+// ═══════════════════════════════════════════════════════════════════
+function makeFlower(x,z){
+  const g=new THREE.Group();
+  put(g,mkCyl(0.04,0.04,0.85,6,M.stem),0,0.42,0);
+  for(let i=0;i<6;i++){
+    const a=(i/6)*Math.PI*2, p=mkSph(0.23,6,5,M.petal);
+    p.position.set(Math.cos(a)*0.26,0.88,Math.sin(a)*0.26); p.scale.set(1,0.5,1); g.add(p);
+  }
+  put(g,mkSph(0.19,7,6,M.pollen),0,0.90,0);
+  g.position.set(x,0,z); scene.add(g);
+}
+[[-5.2,3.2],[5.1,4.0],[-6.2,0.5],[-4.1,6.2],[3.2,7.1],
+ [6.1,1.4],[-3.1,8.2],[7.2,-1.8],[1.2,9.1],[-7.1,5.3]].forEach(([x,z])=>makeFlower(x,z));
+
+// ═══════════════════════════════════════════════════════════════════
+//  ROUND TABLE  —  dark walnut top
+// ═══════════════════════════════════════════════════════════════════
+const TABLE_SURFACE_Y = 2.965;
+
+(function(){
+  const g=new THREE.Group();
+  put(g,mkCyl(2.3,2.3,0.13,36,M.tableTop),0,TABLE_SURFACE_Y,0);
+  for(let i=0;i<18;i++){
+    const ln=mkBox(4.5,0.04,0.055,M.tableRim); ln.rotation.y=(i/18)*Math.PI; ln.position.y=TABLE_SURFACE_Y+0.075; g.add(ln);
+  }
+  put(g,mkCyl(2.35,2.35,0.07,36,M.tableRim),0,TABLE_SURFACE_Y+0.075,0);
+  put(g,mkCyl(0.19,0.19,2.65,10,M.tableBase),0,1.60,0);
+  for(let i=0;i<4;i++){
+    const f=mkBox(1.6,0.10,0.20,M.tableBase); f.rotation.y=(i/4)*Math.PI; f.position.y=0.20; g.add(f);
+    const a=(i/4)*Math.PI; put(g,mkSph(0.16,6,5,M.tableBase),Math.cos(a)*0.75,0.17,Math.sin(a)*0.75);
+  }
+  scene.add(g);
+})();
+
+// ═══════════════════════════════════════════════════════════════════
+//  CHAIRS  —  TWO CHAIRS ONLY, seats facing the table
+//  Teal cushions, gold metal legs
+// ═══════════════════════════════════════════════════════════════════
+function makeChair(cx, cz){
+  const g = new THREE.Group();
+
+  const LEG_H  = 2.00;
+  const SEAT_Y = LEG_H + 0.065;
+  const BACK_H = 1.65;
+  const FZ     =  0.38;   // front (toward table in local space)
+  const BZ     = -0.38;   // back  (away from table)
+
+  // Vertical legs
+  [[-0.44,FZ],[0.44,FZ],[-0.44,BZ],[0.44,BZ]].forEach(([lx,lz])=>{
+    put(g, mkCyl(0.048,0.048,LEG_H,8,M.chairMetal), lx, LEG_H/2, lz);
+  });
+
+  // Mid-height stretchers
+  const BY=LEG_H*0.40;
+  put(g,mkBox(0.88,0.06,0.06,M.chairMetal), 0,BY, FZ);
+  put(g,mkBox(0.88,0.06,0.06,M.chairMetal), 0,BY, BZ);
+  put(g,mkBox(0.06,0.06,0.76,M.chairMetal),-0.44,BY,0);
+  put(g,mkBox(0.06,0.06,0.76,M.chairMetal), 0.44,BY,0);
+
+  // Seat cushion
+  const seat=mkBox(1.08,0.14,0.92,M.chairSeat);
+  seat.position.set(0,SEAT_Y,(FZ+BZ)/2); g.add(seat);
+
+  // Seat underframe (thin rails)
+  [FZ,BZ].forEach(lz=>{
+    put(g,mkBox(0.98,0.06,0.06,M.chairMetal),0,SEAT_Y-0.10,lz);
+  });
+  [-0.44,0.44].forEach(lx=>{
+    put(g,mkBox(0.06,0.06,0.80,M.chairMetal),lx,SEAT_Y-0.10,0);
+  });
+
+  // Back uprights
+  const BMID=SEAT_Y+BACK_H/2;
+  put(g,mkCyl(0.048,0.048,BACK_H,8,M.chairMetal),-0.44,BMID,BZ);
+  put(g,mkCyl(0.048,0.048,BACK_H,8,M.chairMetal), 0.44,BMID,BZ);
+
+  // Back panel
+  put(g,mkBox(1.02,BACK_H*0.88,0.11,M.chairBack),0,SEAT_Y+BACK_H*0.46,BZ);
+
+  // Rungs
+  for(let i=0;i<4;i++){
+    put(g,mkBox(0.94,0.07,0.07,M.chairMetal),0,SEAT_Y+0.18+i*(BACK_H*0.22),BZ);
+  }
+
+  // Top rail
+  put(g,mkBox(1.08,0.11,0.14,M.chairSeat),0,SEAT_Y+BACK_H-0.05,BZ);
+
+  // Place & rotate so open (+Z local) faces table
+  g.position.set(cx, 0, cz);
+  g.rotation.y = Math.atan2(-cx, -cz);
+  scene.add(g);
+}
+
+// ── Only TWO chairs: front and back ──
+const CHAIR_DIST = 2.85;
+makeChair( 0,  CHAIR_DIST);   // front  – faces table
+makeChair( 0, -CHAIR_DIST);   // back   – faces table
+
+// ═══════════════════════════════════════════════════════════════════
+//  TABLE ITEMS
+// ═══════════════════════════════════════════════════════════════════
+const TY = TABLE_SURFACE_Y + 0.065;
+
+// Milo Tin  — amber stripe, cream label
+(function(){
+  const g=new THREE.Group();
+  put(g,mkCyl(0.22,0.22,0.66,14,M.miloGreen),  0,TY+0.33,0);
+  put(g,mkCyl(0.226,0.226,0.15,14,M.miloStripe),0,TY+0.12,0);
+  put(g,mkCyl(0.224,0.224,0.28,14,M.miloLabel), 0,TY+0.43,0);
+  put(g,mkCyl(0.240,0.240,0.07,14,M.miloLid),   0,TY+0.70,0);
+  g.position.set(-0.62,0,-0.28); scene.add(g);
+})();
+
+// Milk Tin  — dark blue body, white & gold bands
+(function(){
+  const g=new THREE.Group();
+  put(g,mkCyl(0.21,0.21,0.60,14,M.milkBody),   0,TY+0.30,0);
+  put(g,mkCyl(0.215,0.215,0.14,14,M.milkBand1),0,TY+0.11,0);
+  put(g,mkCyl(0.215,0.215,0.18,14,M.milkBand2),0,TY+0.38,0);
+  put(g,mkCyl(0.225,0.225,0.06,14,M.milkLid),  0,TY+0.63,0);
+  g.position.set(0.56,0,-0.14); scene.add(g);
+})();
+
+// Cups  — terracotta with dark coffee
+function makeCup(x,z){
+  const g=new THREE.Group();
+  put(g,mkCyl(0.42,0.38,0.07,16,M.cupRim), 0,TY+0.035,0);       // saucer
+  put(g,mkCyl(0.23,0.17,0.36,14,M.cup),    0,TY+0.245,0);        // body
+  put(g,mkCyl(0.21,0.21,0.05,14,M.coffee), 0,TY+0.415,0);        // coffee
+  const hd=new THREE.Mesh(new THREE.TorusGeometry(0.13,0.032,7,12,Math.PI),M.cupRim);
+  hd.castShadow=true; hd.position.set(0.29,TY+0.245,0); hd.rotation.z=-Math.PI/2; g.add(hd);
+  g.position.set(x,0,z); scene.add(g);
+}
+makeCup(-0.82,0.62); makeCup(0.76,0.58);
+
+// Mini plant pots  — navy pots, bright green
+function makePlantPot(x,z){
+  const g=new THREE.Group();
+  put(g,mkCyl(0.19,0.14,0.23,10,M.pot),0,TY+0.115,0);
+  const pl=mkSph(0.23,8,7,M.leaf); pl.position.set(0,TY+0.35,0); pl.scale.y=0.72; g.add(pl);
+  g.position.set(x,0,z); scene.add(g);
+}
+makePlantPot(-1.42,-0.82); makePlantPot(1.32,-0.70);
+
+// ═══════════════════════════════════════════════════════════════════
+//  CAMERA ORBIT CONTROLS
+// ═══════════════════════════════════════════════════════════════════
+let dragging=false, rightDrag=false, prev={x:0,y:0};
+const orb={ theta:0.35, phi:0.80, r:28 };
+const tgt=new THREE.Vector3(0,1,0);
+
+function refreshCam(){
+  camera.position.set(
+    tgt.x + orb.r*Math.sin(orb.phi)*Math.sin(orb.theta),
+    tgt.y + orb.r*Math.cos(orb.phi),
+    tgt.z + orb.r*Math.sin(orb.phi)*Math.cos(orb.theta)
+  );
+  camera.lookAt(tgt);
+}
+refreshCam();
+
+renderer.domElement.addEventListener('mousedown',e=>{ dragging=true; rightDrag=e.button===2; prev={x:e.clientX,y:e.clientY}; });
+renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());
+addEventListener('mouseup',()=>{ dragging=false; });
+addEventListener('mousemove',e=>{
+  if(!dragging) return;
+  const dx=e.clientX-prev.x, dy=e.clientY-prev.y; prev={x:e.clientX,y:e.clientY};
+  if(rightDrag){
+    const r=new THREE.Vector3(); camera.getWorldDirection(r); r.cross(camera.up).normalize();
+    tgt.addScaledVector(r,-dx*0.016); tgt.addScaledVector(new THREE.Vector3(0,1,0),dy*0.016);
+  } else {
+    orb.theta-=dx*0.008;
+    orb.phi=Math.max(0.12,Math.min(Math.PI/2.05,orb.phi-dy*0.008));
+  }
+  refreshCam();
+});
+renderer.domElement.addEventListener('wheel',e=>{ orb.r=Math.max(5,Math.min(55,orb.r+e.deltaY*0.04)); refreshCam(); },{passive:true});
+
+let pt=null;
+renderer.domElement.addEventListener('touchstart',e=>{ pt={x:e.touches[0].clientX,y:e.touches[0].clientY}; });
+renderer.domElement.addEventListener('touchmove', e=>{
+  if(!pt) return;
+  const dx=e.touches[0].clientX-pt.x, dy=e.touches[0].clientY-pt.y;
+  pt={x:e.touches[0].clientX,y:e.touches[0].clientY};
+  orb.theta-=dx*0.008; orb.phi=Math.max(0.12,Math.min(Math.PI/2.05,orb.phi-dy*0.008));
+  refreshCam();
+});
+addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+
+// ═══════════════════════════════════════════════════════════════════
+//  RENDER LOOP
+// ═══════════════════════════════════════════════════════════════════
+(function loop(){ requestAnimationFrame(loop); renderer.render(scene,camera); })();
+</script>
 </body>
 </html>
