@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garden Scene - Practical Quiz</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #87CEEB; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // 1. SCENE & CAMERA SETUP
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB); // Sky Blue
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(15, 12, 20);
+        camera.lookAt(0, 2, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // 2. LIGHTING (Creates the shadows seen in Image 2)
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        sunLight.position.set(10, 20, 10);
+        sunLight.castShadow = true;
+        scene.add(sunLight);
+
+        // 3. MATERIALS
+        const greenMat = new THREE.MeshLambertMaterial({ color: 0x71aa3c });
+        const woodMat = new THREE.MeshLambertMaterial({ color: 0xba8c63 });
+        const darkMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
+        const groundMat = new THREE.MeshLambertMaterial({ color: 0xeeeeee });
+        const pinkMat = new THREE.MeshLambertMaterial({ color: 0xffb6c1 });
+
+        // 4. THE GROUND
+        const ground = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // 5. HEDGES (L-Shape Boundary)
+        function createHedge(w, h, d, x, z) {
+            const hedge = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), greenMat);
+            hedge.position.set(x, h/2, z);
+            hedge.castShadow = true;
+            scene.add(hedge);
+        }
+        createHedge(20, 3, 2, 0, -8); // Back hedge
+        createHedge(2, 3, 15, -9, 0); // Left hedge
+
+        // 6. TREES (Cone-based pine trees)
+        function createTree(x, z) {
+            const group = new THREE.Group();
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 2), woodMat);
+            trunk.position.y = 1;
+            group.add(trunk);
+            
+            for(let i=0; i<3; i++) {
+                const foliage = new THREE.Mesh(new THREE.ConeGeometry(1.5 - (i*0.3), 2), greenMat);
+                foliage.position.y = 2.5 + (i * 1.2);
+                group.add(foliage);
+            }
+            group.position.set(x, 0, z);
+            scene.add(group);
+        }
+        createTree(-7, -6);
+        createTree(7, -6);
+
+        // 7. THE TABLE (Central Piece)
+        const table = new THREE.Group();
+        const top = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 0.2, 32), woodMat);
+        top.position.y = 2.5;
+        table.add(top);
+        
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 2.5), darkMat);
+        leg.position.y = 1.25;
+        table.add(leg);
+
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.1), darkMat);
+        base.position.y = 0.05;
+        table.add(base);
+        scene.add(table);
+
+        // 8. CHAIRS (x2)
+        function createChair(x, z, rot) {
+            const chair = new THREE.Group();
+            const seat = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.2, 1.2), pinkMat);
+            seat.position.y = 1.3;
+            chair.add(seat);
+            
+            // Simple legs
+            for(let i=0; i<4; i++) {
+                const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.3), darkMat);
+                leg.position.set(i<2?0.5:-0.5, 0.65, i%2==0?0.5:-0.5);
+                chair.add(leg);
+            }
+            chair.position.set(x, 0, z);
+            chair.rotation.y = rot;
+            scene.add(chair);
+        }
+        createChair(-4, 0, Math.PI/2);
+        createChair(4, 0, -Math.PI/2);
+
+        // 9. TABLETOP ITEMS (Milo, Milk, Cups)
+        const milo = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.7), new THREE.MeshLambertMaterial({color: 0x006400}));
+        milo.position.set(-0.6, 2.9, 0.3);
+        scene.add(milo);
+
+        const milk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.6), groundMat);
+        milk.position.set(0.6, 2.9, -0.3);
+        scene.add(milk);
+
+        function createCup(x, z) {
+            const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.15, 0.3), pinkMat);
+            cup.position.set(x, 2.75, z);
+            scene.add(cup);
+        }
+        createCup(0, 0.8);
+        createCup(0, -0.8);
+
+        // 10. ANIMATION LOOP
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
